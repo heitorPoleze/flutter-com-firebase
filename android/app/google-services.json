@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "953780714962",
+    "project_id": "heitor-e-jessica",
+    "storage_bucket": "heitor-e-jessica.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:953780714962:android:299f632c70b177b8f95c0b",
+        "android_client_info": {
+          "package_name": "com.example.app"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyBtHEDIiwJl-_K4iM0F5wIXKOshEqacRYA"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
