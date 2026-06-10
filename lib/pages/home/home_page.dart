@@ -1,3 +1,4 @@
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 
 import '../livros/livros_page.dart';
@@ -37,26 +38,35 @@ class _HomePageState extends State<HomePage> {
     }
   }
 
-  Widget get _conteudo {
-    switch (_menuSelecionado) {
-      case MenuApp.livros:
-        return const LivrosPage();
-      case MenuApp.categorias:
-        return const CategoriasPage();
-      case MenuApp.autores:
-        return const AutoresPage();
-      case MenuApp.emprestimos:
-        return const EmprestimosPage();
-    }
-  }
+  // Widget get _conteudo {
+  //   switch (_menuSelecionado) {
+  //     case MenuApp.livros:
+  //       return const LivrosPage();
+  //     case MenuApp.categorias:
+  //       return const CategoriasPage();
+  //     case MenuApp.autores:
+  //       return const AutoresPage();
+  //     case MenuApp.emprestimos:
+  //       return const EmprestimosPage();
+  //   }
+  // }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
         title: Text(_titulo),
+      actions: [
+        IconButton(
+          icon: const Icon(Icons.logout),
+          tooltip: 'Sair',
+          onPressed: () async {
+            await FirebaseAuth.instance.signOut();
+            }, 
+          )
+        ],
       ),
-      body: _conteudo,
+      //body: _conteudo,
       bottomNavigationBar: NavigationBar(
         selectedIndex: _menuSelecionado.index,
         onDestinationSelected: (index) {
