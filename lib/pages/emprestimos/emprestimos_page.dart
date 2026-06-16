@@ -1,804 +1,465 @@
-// import 'package:flutter/material.dart';
-
-// import '../../models/emprestimo.dart';
-// import '../../models/livro.dart';
-// import '../../services/api_service.dart';
-// import '../../widgets/painel_busca_filtros.dart';
-// import 'emprestimo_form_dialog.dart';
-
-// class EmprestimosPage extends StatefulWidget {
-//   const EmprestimosPage({
-//     super.key,
-//   });
-
-//   @override
-//   State<EmprestimosPage> createState() => _EmprestimosPageState();
-// }
-
-// class _EmprestimosPageState extends State<EmprestimosPage> {
-//   final ApiService _apiService = ApiService();
-
-//   final TextEditingController _pesquisaController = TextEditingController();
-//   final TextEditingController _statusFiltroController = TextEditingController();
-
-//   List<Emprestimo> _emprestimos = [];
-//   List<Livro> _livros = [];
-
-//   bool _loading = true;
-//   String _textoPesquisa = '';
-//   String _statusFiltro = 'TODOS';
-
-//   @override
-//   void initState() {
-//     super.initState();
-
-//     _statusFiltroController.text = 'Todos os status';
-//     _carregarDados();
-//   }
-
-//   @override
-//   void dispose() {
-//     _pesquisaController.dispose();
-//     _statusFiltroController.dispose();
-//     super.dispose();
-//   }
-
-//   List<Emprestimo> get _emprestimosFiltrados {
-//     return _emprestimos.where((emprestimo) {
-//       final texto = _textoPesquisa.toLowerCase().trim();
-//       final livros = _livrosDoEmprestimo(emprestimo).toLowerCase();
-
-//       final correspondePesquisa = texto.isEmpty ||
-//           emprestimo.nomePessoa.toLowerCase().contains(texto) ||
-//           (emprestimo.telefonePessoa ?? '').toLowerCase().contains(texto) ||
-//           (emprestimo.documentoPessoa ?? '').toLowerCase().contains(texto) ||
-//           emprestimo.status.toLowerCase().contains(texto) ||
-//           livros.contains(texto) ||
-//           emprestimo.dataEmprestimo.toLowerCase().contains(texto) ||
-//           emprestimo.dataPrevistaDevolucao.toLowerCase().contains(texto);
-
-//       final correspondeStatus =
-//           _statusFiltro == 'TODOS' || emprestimo.status == _statusFiltro;
-
-//       return correspondePesquisa && correspondeStatus;
-//     }).toList();
-//   }
-
-//   int get _totalAbertos {
-//     return _emprestimos
-//         .where((emprestimo) => emprestimo.status == 'ABERTO')
-//         .length;
-//   }
-
-//   int get _totalDevolvidos {
-//     return _emprestimos
-//         .where((emprestimo) => emprestimo.status == 'DEVOLVIDO')
-//         .length;
-//   }
-
-//   int get _totalAtrasados {
-//     return _emprestimos
-//         .where((emprestimo) => emprestimo.status == 'ATRASADO')
-//         .length;
-//   }
-
-//   Future<void> _carregarDados() async {
-//     setState(() {
-//       _loading = true;
-//     });
-
-//     try {
-//       final emprestimos = await _apiService.getEmprestimos();
-//       final livros = await _apiService.getLivros();
-
-//       setState(() {
-//         _emprestimos = emprestimos;
-//         _livros = livros;
-//       });
-//     } catch (error) {
-//       if (!mounted) return;
-
-//       ScaffoldMessenger.of(context).showSnackBar(
-//         SnackBar(
-//           content: Text(error.toString().replaceFirst('Exception: ', '')),
-//           backgroundColor: Colors.red,
-//         ),
-//       );
-//     } finally {
-//       if (mounted) {
-//         setState(() {
-//           _loading = false;
-//         });
-//       }
-//     }
-//   }
-
-//   void _limparBusca() {
-//     setState(() {
-//       _textoPesquisa = '';
-//       _pesquisaController.clear();
-//     });
-//   }
-
-//   void _limparFiltros() {
-//     setState(() {
-//       _textoPesquisa = '';
-//       _statusFiltro = 'TODOS';
-
-//       _pesquisaController.clear();
-//       _statusFiltroController.text = 'Todos os status';
-//     });
-//   }
-
-//   Future<void> _novoEmprestimo() async {
-//     final livrosDisponiveis = _livros
-//         .where((livro) => livro.quantidade > 0)
-//         .toList();
-
-//     if (livrosDisponiveis.isEmpty) {
-//       ScaffoldMessenger.of(context).showSnackBar(
-//         const SnackBar(
-//           content: Text('Não existem livros disponíveis para empréstimo.'),
-//           backgroundColor: Colors.orange,
-//         ),
-//       );
-//       return;
-//     }
-
-//     final payload = await showDialog<EmprestimoPayload>(
-//       context: context,
-//       builder: (_) => EmprestimoFormDialog(
-//         livros: livrosDisponiveis,
-//       ),
-//     );
-
-//     if (payload == null) {
-//       return;
-//     }
-
-//     try {
-//       await _apiService.criarEmprestimo(payload);
-//       await _carregarDados();
-
-//       if (!mounted) return;
-
-//       ScaffoldMessenger.of(context).showSnackBar(
-//         const SnackBar(
-//           content: Text('Empréstimo criado com sucesso.'),
-//         ),
-//       );
-//     } catch (error) {
-//       if (!mounted) return;
-
-//       ScaffoldMessenger.of(context).showSnackBar(
-//         SnackBar(
-//           content: Text(error.toString().replaceFirst('Exception: ', '')),
-//           backgroundColor: Colors.red,
-//         ),
-//       );
-//     }
-//   }
-
-//   Future<void> _devolver(Emprestimo emprestimo) async {
-//     final confirmar = await showDialog<bool>(
-//       context: context,
-//       builder: (_) => AlertDialog(
-//         title: const Text('Devolver empréstimo'),
-//         content: Text(
-//           'Deseja confirmar a devolução do empréstimo #${emprestimo.idemprestimo}?\n\n'
-//           'Pessoa: ${emprestimo.nomePessoa}\n'
-//           'Livros: ${_livrosDoEmprestimo(emprestimo)}',
-//         ),
-//         actions: [
-//           TextButton(
-//             onPressed: () => Navigator.pop(context, false),
-//             child: const Text('Cancelar'),
-//           ),
-//           FilledButton.icon(
-//             onPressed: () => Navigator.pop(context, true),
-//             icon: const Icon(Icons.assignment_turned_in_outlined),
-//             label: const Text('Devolver'),
-//           ),
-//         ],
-//       ),
-//     );
-
-//     if (confirmar != true) {
-//       return;
-//     }
-
-//     try {
-//       await _apiService.devolverEmprestimo(emprestimo.idemprestimo);
-//       await _carregarDados();
-
-//       if (!mounted) return;
-
-//       ScaffoldMessenger.of(context).showSnackBar(
-//         const SnackBar(
-//           content: Text('Empréstimo devolvido com sucesso.'),
-//         ),
-//       );
-//     } catch (error) {
-//       if (!mounted) return;
-
-//       ScaffoldMessenger.of(context).showSnackBar(
-//         SnackBar(
-//           content: Text(error.toString().replaceFirst('Exception: ', '')),
-//           backgroundColor: Colors.red,
-//         ),
-//       );
-//     }
-//   }
-
-//   String _valorOuTraco(String? valor) {
-//     if (valor == null || valor.trim().isEmpty) {
-//       return '-';
-//     }
-
-//     return valor;
-//   }
-
-//   String _livrosDoEmprestimo(Emprestimo emprestimo) {
-//     if (emprestimo.itens.isEmpty) {
-//       return 'Nenhum livro informado';
-//     }
-
-//     return emprestimo.itens
-//         .map((item) => '${item.livroNome} (${item.qtd})')
-//         .join(', ');
-//   }
-
-//   String _formatarData(String? data) {
-//     if (data == null || data.trim().isEmpty) {
-//       return '-';
-//     }
-
-//     final dataConvertida = DateTime.tryParse(data);
-
-//     if (dataConvertida == null) {
-//       return data;
-//     }
-
-//     final dia = dataConvertida.day.toString().padLeft(2, '0');
-//     final mes = dataConvertida.month.toString().padLeft(2, '0');
-//     final ano = dataConvertida.year.toString().padLeft(4, '0');
-
-//     return '$dia/$mes/$ano';
-//   }
-
-//   String _textoStatus(String status) {
-//     switch (status) {
-//       case 'DEVOLVIDO':
-//         return 'Devolvido';
-//       case 'ATRASADO':
-//         return 'Atrasado';
-//       default:
-//         return 'Aberto';
-//     }
-//   }
-
-//   Color _corStatus(String status) {
-//     switch (status) {
-//       case 'DEVOLVIDO':
-//         return Colors.green.shade600;
-//       case 'ATRASADO':
-//         return Colors.red.shade600;
-//       default:
-//         return Colors.orange.shade700;
-//     }
-//   }
-
-//   IconData _iconeStatus(String status) {
-//     switch (status) {
-//       case 'DEVOLVIDO':
-//         return Icons.check_circle_outline;
-//       case 'ATRASADO':
-//         return Icons.warning_amber_outlined;
-//       default:
-//         return Icons.schedule_outlined;
-//     }
-//   }
-
-//   Widget _buildCabecalho() {
-//     return Padding(
-//       padding: const EdgeInsets.only(bottom: 18),
-//       child: Row(
-//         crossAxisAlignment: CrossAxisAlignment.end,
-//         children: [
-//           const Expanded(
-//             child: Column(
-//               crossAxisAlignment: CrossAxisAlignment.start,
-//               children: [
-//                 Text(
-//                   'Empréstimos',
-//                   style: TextStyle(
-//                     fontSize: 28,
-//                     fontWeight: FontWeight.w800,
-//                     color: Color(0xFF20212A),
-//                   ),
-//                 ),
-//                 SizedBox(height: 4),
-//                 Text(
-//                   'Acompanhe os livros emprestados, devoluções e prazos.',
-//                   style: TextStyle(
-//                     fontSize: 14,
-//                     color: Color(0xFF696B78),
-//                   ),
-//                 ),
-//               ],
-//             ),
-//           ),
-//           Container(
-//             padding: const EdgeInsets.symmetric(
-//               horizontal: 14,
-//               vertical: 8,
-//             ),
-//             decoration: BoxDecoration(
-//               color: const Color(0xFFEFF2FF),
-//               borderRadius: BorderRadius.circular(999),
-//             ),
-//             child: Text(
-//               '${_emprestimos.length} empréstimo(s)',
-//               style: const TextStyle(
-//                 color: Color(0xFF37448F),
-//                 fontWeight: FontWeight.w700,
-//               ),
-//             ),
-//           ),
-//         ],
-//       ),
-//     );
-//   }
-
-//   Widget _buildResumoGeral() {
-//     return Padding(
-//       padding: const EdgeInsets.only(bottom: 18),
-//       child: Wrap(
-//         spacing: 12,
-//         runSpacing: 12,
-//         children: [
-//           _buildResumoCard(
-//             titulo: 'Total',
-//             valor: _emprestimos.length.toString(),
-//             icon: Icons.assignment_outlined,
-//             cor: Colors.indigo,
-//           ),
-//           _buildResumoCard(
-//             titulo: 'Abertos',
-//             valor: _totalAbertos.toString(),
-//             icon: Icons.schedule_outlined,
-//             cor: Colors.orange,
-//           ),
-//           _buildResumoCard(
-//             titulo: 'Devolvidos',
-//             valor: _totalDevolvidos.toString(),
-//             icon: Icons.check_circle_outline,
-//             cor: Colors.green,
-//           ),
-//           _buildResumoCard(
-//             titulo: 'Atrasados',
-//             valor: _totalAtrasados.toString(),
-//             icon: Icons.warning_amber_outlined,
-//             cor: Colors.red,
-//           ),
-//         ],
-//       ),
-//     );
-//   }
-
-//   Widget _buildResumoCard({
-//     required String titulo,
-//     required String valor,
-//     required IconData icon,
-//     required MaterialColor cor,
-//   }) {
-//     return Container(
-//       width: 180,
-//       padding: const EdgeInsets.all(14),
-//       decoration: BoxDecoration(
-//         color: Colors.white,
-//         borderRadius: BorderRadius.circular(22),
-//         border: const Border.fromBorderSide(
-//           BorderSide(color: Color(0xFFE3E5EF)),
-//         ),
-//       ),
-//       child: Row(
-//         children: [
-//           Container(
-//             width: 42,
-//             height: 42,
-//             decoration: BoxDecoration(
-//               color: cor.shade50,
-//               borderRadius: BorderRadius.circular(15),
-//             ),
-//             child: Icon(
-//               icon,
-//               color: cor.shade700,
-//             ),
-//           ),
-//           const SizedBox(width: 12),
-//           Expanded(
-//             child: Column(
-//               crossAxisAlignment: CrossAxisAlignment.start,
-//               children: [
-//                 Text(
-//                   valor,
-//                   style: const TextStyle(
-//                     fontSize: 20,
-//                     fontWeight: FontWeight.w800,
-//                     color: Color(0xFF20212A),
-//                   ),
-//                 ),
-//                 Text(
-//                   titulo,
-//                   style: const TextStyle(
-//                     fontSize: 13,
-//                     color: Color(0xFF696B78),
-//                   ),
-//                 ),
-//               ],
-//             ),
-//           ),
-//         ],
-//       ),
-//     );
-//   }
-
-//   List<Widget> _buildChipsAtivos() {
-//     return [
-//       if (_textoPesquisa.trim().isNotEmpty)
-//         InputChip(
-//           avatar: const Icon(Icons.search, size: 18),
-//           label: Text('Busca: $_textoPesquisa'),
-//           onDeleted: _limparBusca,
-//         ),
-//       if (_statusFiltro != 'TODOS')
-//         InputChip(
-//           avatar: Icon(
-//             _iconeStatus(_statusFiltro),
-//             size: 18,
-//           ),
-//           label: Text('Status: ${_textoStatus(_statusFiltro)}'),
-//           onDeleted: () {
-//             setState(() {
-//               _statusFiltro = 'TODOS';
-//               _statusFiltroController.text = 'Todos os status';
-//             });
-//           },
-//         ),
-//     ];
-//   }
-
-//   Widget _buildFiltroStatus() {
-//     return SizedBox(
-//       width: 320,
-//       child: DropdownMenu<String>(
-//         controller: _statusFiltroController,
-//         label: const Text('Status'),
-//         hintText: 'Digite para procurar',
-//         width: 320,
-//         menuHeight: 260,
-//         enableFilter: true,
-//         enableSearch: true,
-//         requestFocusOnTap: true,
-//         initialSelection: _statusFiltro,
-//         dropdownMenuEntries: const <DropdownMenuEntry<String>>[
-//           DropdownMenuEntry<String>(
-//             value: 'TODOS',
-//             label: 'Todos os status',
-//           ),
-//           DropdownMenuEntry<String>(
-//             value: 'ABERTO',
-//             label: 'Aberto',
-//           ),
-//           DropdownMenuEntry<String>(
-//             value: 'DEVOLVIDO',
-//             label: 'Devolvido',
-//           ),
-//           DropdownMenuEntry<String>(
-//             value: 'ATRASADO',
-//             label: 'Atrasado',
-//           ),
-//         ],
-//         onSelected: (value) {
-//           setState(() {
-//             _statusFiltro = value ?? 'TODOS';
-
-//             if (_statusFiltro == 'TODOS') {
-//               _statusFiltroController.text = 'Todos os status';
-//             }
-//           });
-//         },
-//       ),
-//     );
-//   }
-
-//   Widget _buildPainelFiltros() {
-//     return PainelBuscaFiltros(
-//       controllerBusca: _pesquisaController,
-//       titulo: 'Busca e filtros',
-//       hintBusca: 'Digite pessoa, documento, telefone, livro ou data',
-//       textoResultado:
-//           'Resultado: ${_emprestimosFiltrados.length} de ${_emprestimos.length} empréstimo(s)',
-//       possuiBuscaDigitada: _textoPesquisa.trim().isNotEmpty,
-//       onBuscaAlterada: (value) {
-//         setState(() {
-//           _textoPesquisa = value;
-//         });
-//       },
-//       onLimparBusca: _limparBusca,
-//       onLimparFiltros: _limparFiltros,
-//       filtros: [
-//         _buildFiltroStatus(),
-//       ],
-//       chipsAtivos: _buildChipsAtivos(),
-//     );
-//   }
-
-//   Widget _buildStatusChip(Emprestimo emprestimo) {
-//     return Container(
-//       padding: const EdgeInsets.symmetric(
-//         horizontal: 12,
-//         vertical: 7,
-//       ),
-//       decoration: BoxDecoration(
-//         color: _corStatus(emprestimo.status),
-//         borderRadius: BorderRadius.circular(999),
-//       ),
-//       child: Row(
-//         mainAxisSize: MainAxisSize.min,
-//         children: [
-//           Icon(
-//             _iconeStatus(emprestimo.status),
-//             size: 16,
-//             color: Colors.white,
-//           ),
-//           const SizedBox(width: 6),
-//           Text(
-//             _textoStatus(emprestimo.status),
-//             style: const TextStyle(
-//               color: Colors.white,
-//               fontWeight: FontWeight.w700,
-//               fontSize: 13,
-//             ),
-//           ),
-//         ],
-//       ),
-//     );
-//   }
-
-//   Widget _buildInfoLinha({
-//     required IconData icon,
-//     required String texto,
-//   }) {
-//     return Padding(
-//       padding: const EdgeInsets.only(top: 5),
-//       child: Row(
-//         crossAxisAlignment: CrossAxisAlignment.start,
-//         children: [
-//           Icon(
-//             icon,
-//             size: 17,
-//             color: const Color(0xFF696B78),
-//           ),
-//           const SizedBox(width: 6),
-//           Expanded(
-//             child: Text(
-//               texto,
-//               style: const TextStyle(
-//                 color: Color(0xFF4D4F5C),
-//                 height: 1.25,
-//               ),
-//             ),
-//           ),
-//         ],
-//       ),
-//     );
-//   }
-
-//   Widget _buildMiniResumo({
-//     required String label,
-//     required String valor,
-//     required IconData icon,
-//   }) {
-//     return Container(
-//       padding: const EdgeInsets.symmetric(
-//         horizontal: 10,
-//         vertical: 7,
-//       ),
-//       decoration: BoxDecoration(
-//         color: const Color(0xFFF3F4FA),
-//         borderRadius: BorderRadius.circular(999),
-//       ),
-//       child: Row(
-//         mainAxisSize: MainAxisSize.min,
-//         children: [
-//           Icon(
-//             icon,
-//             size: 16,
-//             color: const Color(0xFF55586A),
-//           ),
-//           const SizedBox(width: 6),
-//           Text(
-//             '$label: $valor',
-//             style: const TextStyle(
-//               fontSize: 13,
-//               color: Color(0xFF3F4150),
-//               fontWeight: FontWeight.w600,
-//             ),
-//           ),
-//         ],
-//       ),
-//     );
-//   }
-
-//   Widget _buildEmprestimoCard(Emprestimo emprestimo) {
-//     return Card(
-//       elevation: 0.8,
-//       color: Colors.white,
-//       margin: const EdgeInsets.only(bottom: 14),
-//       shape: RoundedRectangleBorder(
-//         borderRadius: BorderRadius.circular(22),
-//         side: const BorderSide(
-//           color: Color(0xFFE3E5EF),
-//         ),
-//       ),
-//       child: Padding(
-//         padding: const EdgeInsets.all(18),
-//         child: Row(
-//           crossAxisAlignment: CrossAxisAlignment.start,
-//           children: [
-//             Container(
-//               width: 54,
-//               height: 54,
-//               alignment: Alignment.center,
-//               decoration: BoxDecoration(
-//                 color: const Color(0xFFE8EBFF),
-//                 borderRadius: BorderRadius.circular(18),
-//               ),
-//               child: Text(
-//                 emprestimo.idemprestimo.toString(),
-//                 style: const TextStyle(
-//                   color: Color(0xFF37448F),
-//                   fontSize: 18,
-//                   fontWeight: FontWeight.w800,
-//                 ),
-//               ),
-//             ),
-//             const SizedBox(width: 16),
-//             Expanded(
-//               child: Column(
-//                 crossAxisAlignment: CrossAxisAlignment.start,
-//                 children: [
-//                   Text(
-//                     'Empréstimo #${emprestimo.idemprestimo}',
-//                     style: const TextStyle(
-//                       fontSize: 18,
-//                       fontWeight: FontWeight.w800,
-//                       color: Color(0xFF20212A),
-//                     ),
-//                   ),
-//                   const SizedBox(height: 8),
-//                   _buildInfoLinha(
-//                     icon: Icons.person_outline,
-//                     texto: 'Pessoa: ${emprestimo.nomePessoa}',
-//                   ),
-//                   _buildInfoLinha(
-//                     icon: Icons.phone_outlined,
-//                     texto:
-//                         'Telefone: ${_valorOuTraco(emprestimo.telefonePessoa)}',
-//                   ),
-//                   _buildInfoLinha(
-//                     icon: Icons.badge_outlined,
-//                     texto:
-//                         'Documento: ${_valorOuTraco(emprestimo.documentoPessoa)}',
-//                   ),
-//                   _buildInfoLinha(
-//                     icon: Icons.menu_book_outlined,
-//                     texto: 'Livros: ${_livrosDoEmprestimo(emprestimo)}',
-//                   ),
-//                   const SizedBox(height: 10),
-//                   Wrap(
-//                     spacing: 8,
-//                     runSpacing: 8,
-//                     children: [
-//                       _buildMiniResumo(
-//                         label: 'Empréstimo',
-//                         valor: _formatarData(emprestimo.dataEmprestimo),
-//                         icon: Icons.calendar_today_outlined,
-//                       ),
-//                       _buildMiniResumo(
-//                         label: 'Previsão',
-//                         valor: _formatarData(
-//                           emprestimo.dataPrevistaDevolucao,
-//                         ),
-//                         icon: Icons.event_available_outlined,
-//                       ),
-//                       _buildMiniResumo(
-//                         label: 'Devolução',
-//                         valor: _formatarData(emprestimo.dataDevolucao),
-//                         icon: Icons.assignment_turned_in_outlined,
-//                       ),
-//                     ],
-//                   ),
-//                 ],
-//               ),
-//             ),
-//             const SizedBox(width: 16),
-//             Column(
-//               crossAxisAlignment: CrossAxisAlignment.end,
-//               children: [
-//                 _buildStatusChip(emprestimo),
-//                 if (!emprestimo.devolvido) ...[
-//                   const SizedBox(height: 14),
-//                   FilledButton.icon(
-//                     onPressed: () => _devolver(emprestimo),
-//                     icon: const Icon(Icons.assignment_turned_in_outlined),
-//                     label: const Text('Devolver'),
-//                   ),
-//                 ],
-//               ],
-//             ),
-//           ],
-//         ),
-//       ),
-//     );
-//   }
-
-//   Widget _buildEstadoVazio() {
-//     return const Padding(
-//       padding: EdgeInsets.only(top: 80),
-//       child: Column(
-//         children: [
-//           Icon(
-//             Icons.assignment_return_outlined,
-//             size: 76,
-//             color: Colors.grey,
-//           ),
-//           SizedBox(height: 16),
-//           Text(
-//             'Nenhum empréstimo encontrado com os filtros informados.',
-//             style: TextStyle(
-//               fontSize: 16,
-//               color: Color(0xFF696B78),
-//             ),
-//           ),
-//         ],
-//       ),
-//     );
-//   }
-
-//   @override
-//   Widget build(BuildContext context) {
-//     if (_loading) {
-//       return const Center(
-//         child: CircularProgressIndicator(),
-//       );
-//     }
-
-//     final emprestimosFiltrados = _emprestimosFiltrados;
-
-//     return Scaffold(
-//       body: RefreshIndicator(
-//         onRefresh: _carregarDados,
-//         child: ListView(
-//           padding: const EdgeInsets.fromLTRB(24, 18, 24, 120),
-//           children: [
-//             _buildCabecalho(),
-//             _buildResumoGeral(),
-//             _buildPainelFiltros(),
-//             if (emprestimosFiltrados.isEmpty)
-//               _buildEstadoVazio()
-//             else
-//               ...emprestimosFiltrados.map(_buildEmprestimoCard),
-//           ],
-//         ),
-//       ),
-//       floatingActionButton: FloatingActionButton.extended(
-//         onPressed: _novoEmprestimo,
-//         icon: const Icon(Icons.add),
-//         label: const Text('Novo empréstimo'),
-//       ),
-//     );
-//   }
-// }
+import 'package:biblioteca_flutter/services/firebase_crud.dart';
+import 'package:flutter/material.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
+import '../../models/emprestimo.dart';
+import '../../models/livro.dart';
+import '../../widgets/painel_busca_filtros.dart';
+import 'emprestimo_form_dialog.dart';
+
+class EmprestimosPage extends StatefulWidget {
+  const EmprestimosPage({super.key});
+
+  @override
+  State<EmprestimosPage> createState() => _EmprestimosPageState();
+}
+
+class _EmprestimosPageState extends State<EmprestimosPage> {
+  final FirestoreService _service = FirestoreService();
+
+  final TextEditingController _pesquisaController = TextEditingController();
+  final TextEditingController _statusFiltroController = TextEditingController();
+
+  String _textoPesquisa = '';
+  String _statusFiltro = 'TODOS';
+
+  @override
+  void initState() {
+    super.initState();
+    _statusFiltroController.text = 'Todos os status';
+  }
+
+  @override
+  void dispose() {
+    _pesquisaController.dispose();
+    _statusFiltroController.dispose();
+    super.dispose();
+  }
+
+  Future<void> _devolver(Emprestimo emprestimo) async {
+    final confirmar = await showDialog<bool>(
+      context: context,
+      builder: (_) => AlertDialog(
+        title: const Text('Devolver empréstimo'),
+        content: Text(
+          'Confirmar devolução do empréstimo #${emprestimo.id}?\n\n'
+          'Pessoa: ${emprestimo.nomePessoa}',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Cancelar'),
+          ),
+          FilledButton.icon(
+            onPressed: () => Navigator.pop(context, true),
+            icon: const Icon(Icons.assignment_turned_in_outlined),
+            label: const Text('Devolver'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmar != true || emprestimo.id == null) return;
+
+    try {
+      final batch = FirebaseFirestore.instance.batch();
+
+      final empRef = FirebaseFirestore.instance
+          .collection('emprestimos')
+          .doc(emprestimo.id);
+      batch.update(empRef, {
+        'status': 'DEVOLVIDO',
+        'dataDevolucao': DateTime.now().toIso8601String(),
+      });
+
+      for (var item in emprestimo.itens) {
+        final livroRef = FirebaseFirestore.instance
+            .collection('livros')
+            .doc(item.livroId);
+        batch.update(livroRef, {
+          'quantidade_disponivel': FieldValue.increment(item.qtd),
+        });
+      }
+
+      await batch.commit();
+      if (mounted) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(const SnackBar(content: Text('Empréstimo devolvido!')));
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Erro: $e'), backgroundColor: Colors.red),
+        );
+      }
+    }
+  }
+
+  Future<void> _novoEmprestimo() async {
+    final querySnapshot = await FirebaseFirestore.instance
+        .collection('livros')
+        .where('quantidade_disponivel', isGreaterThan: 0)
+        .get();
+
+    final livrosDisponiveis = querySnapshot.docs
+        .map((doc) => Livro.fromFirestore(doc.data(), doc.id))
+        .toList();
+
+    if (livrosDisponiveis.isEmpty) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Sem livros disponíveis.'),
+          backgroundColor: Colors.orange,
+        ),
+      );
+      return;
+    }
+
+    if (!mounted) return;
+    await showDialog(
+      context: context,
+      builder: (_) => EmprestimoFormDialog(livros: livrosDisponiveis),
+    );
+  }
+
+  String _formatarData(String? data) {
+    if (data == null || data.isEmpty) return '-';
+    final dt = DateTime.tryParse(data);
+    return dt != null
+        ? "${dt.day.toString().padLeft(2, '0')}/${dt.month.toString().padLeft(2, '0')}/${dt.year}"
+        : data;
+  }
+
+  String _textoStatus(String status) => status == 'DEVOLVIDO'
+      ? 'Devolvido'
+      : (status == 'ATRASADO' ? 'Atrasado' : 'Aberto');
+
+  Color _corStatus(String status) => status == 'DEVOLVIDO'
+      ? Colors.green.shade600
+      : (status == 'ATRASADO' ? Colors.red.shade600 : Colors.orange.shade700);
+
+  IconData _iconeStatus(String status) => status == 'DEVOLVIDO'
+      ? Icons.check_circle_outline
+      : (status == 'ATRASADO'
+            ? Icons.warning_amber_outlined
+            : Icons.schedule_outlined);
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      body: StreamBuilder<QuerySnapshot>(
+        stream: _service.getCollection('emprestimos'),
+        builder: (context, snapshot) {
+          if (snapshot.connectionState == ConnectionState.waiting) {
+            return const Center(child: CircularProgressIndicator());
+          }
+
+          final docs = snapshot.data?.docs ?? [];
+          final emprestimos = docs
+              .map(
+                (d) => Emprestimo.fromFirestore(
+                  d.data() as Map<String, dynamic>,
+                  d.id,
+                ),
+              )
+              .toList();
+
+          final filtrados = emprestimos.where((e) {
+            final t = _textoPesquisa.toLowerCase();
+            final matchTexto =
+                t.isEmpty ||
+                e.nomePessoa.toLowerCase().contains(t) ||
+                e.itens.any((i) => i.livroNome.toLowerCase().contains(t));
+            final matchStatus =
+                _statusFiltro == 'TODOS' || e.status == _statusFiltro;
+            return matchTexto && matchStatus;
+          }).toList();
+
+          return ListView(
+            padding: const EdgeInsets.fromLTRB(24, 18, 24, 120),
+            children: [
+              _buildCabecalho(emprestimos.length),
+              _buildResumoGeral(emprestimos),
+              _buildPainelFiltros(emprestimos.length, filtrados.length),
+              if (filtrados.isEmpty)
+                _buildEstadoVazio()
+              else
+                ...filtrados.map(_buildEmprestimoCard),
+            ],
+          );
+        },
+      ),
+      floatingActionButton: FloatingActionButton.extended(
+        onPressed: _novoEmprestimo,
+        icon: const Icon(Icons.add),
+        label: const Text('Novo empréstimo'),
+      ),
+    );
+  }
+
+  Widget _buildCabecalho(int total) => Padding(
+    padding: const EdgeInsets.only(bottom: 18),
+    child: Row(
+      children: [
+        const Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                'Empréstimos',
+                style: TextStyle(fontSize: 28, fontWeight: FontWeight.w800),
+              ),
+              Text('Acompanhe livros, devoluções e prazos.'),
+            ],
+          ),
+        ),
+        Container(
+          padding: const EdgeInsets.all(12),
+          decoration: BoxDecoration(
+            color: const Color(0xFFEFF2FF),
+            borderRadius: BorderRadius.circular(999),
+          ),
+          child: Text(
+            '$total empréstimo(s)',
+            style: const TextStyle(
+              color: Color(0xFF37448F),
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+        ),
+      ],
+    ),
+  );
+
+  Widget _buildResumoGeral(List<Emprestimo> list) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 18),
+      child: Wrap(
+        spacing: 12,
+        runSpacing: 12,
+        children: [
+          _buildResumoCard(
+            'Total',
+            list.length.toString(),
+            Icons.assignment_outlined,
+            Colors.indigo,
+          ),
+          _buildResumoCard(
+            'Abertos',
+            list.where((e) => e.status == 'ABERTO').length.toString(),
+            Icons.schedule_outlined,
+            Colors.orange,
+          ),
+          _buildResumoCard(
+            'Devolvidos',
+            list.where((e) => e.status == 'DEVOLVIDO').length.toString(),
+            Icons.check_circle_outline,
+            Colors.green,
+          ),
+          _buildResumoCard(
+            'Atrasados',
+            list.where((e) => e.status == 'ATRASADO').length.toString(),
+            Icons.warning_amber_outlined,
+            Colors.red,
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildResumoCard(
+    String titulo,
+    String valor,
+    IconData icon,
+    MaterialColor cor,
+  ) => Container(
+    width: 180,
+    padding: const EdgeInsets.all(14),
+    decoration: BoxDecoration(
+      color: Colors.white,
+      borderRadius: BorderRadius.circular(22),
+      border: Border.all(color: const Color(0xFFE3E5EF)),
+    ),
+    child: Row(
+      children: [
+        Container(
+          width: 42,
+          height: 42,
+          decoration: BoxDecoration(
+            color: cor.shade50,
+            borderRadius: BorderRadius.circular(15),
+          ),
+          child: Icon(icon, color: cor.shade700),
+        ),
+        const SizedBox(width: 12),
+        Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              valor,
+              style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w800),
+            ),
+            Text(
+              titulo,
+              style: const TextStyle(fontSize: 13, color: Color(0xFF696B78)),
+            ),
+          ],
+        ),
+      ],
+    ),
+  );
+
+  Widget _buildPainelFiltros(int total, int resultado) => PainelBuscaFiltros(
+    controllerBusca: _pesquisaController,
+    titulo: 'Busca e filtros',
+    hintBusca: 'Digite pessoa, documento ou livro',
+    textoResultado: 'Resultado: $resultado de $total empréstimo(s)',
+    possuiBuscaDigitada: _textoPesquisa.isNotEmpty,
+    onBuscaAlterada: (v) => setState(() => _textoPesquisa = v),
+    onLimparBusca: () => setState(() {
+      _textoPesquisa = '';
+      _pesquisaController.clear();
+    }),
+    onLimparFiltros: () => setState(() {
+      _textoPesquisa = '';
+      _statusFiltro = 'TODOS';
+      _pesquisaController.clear();
+      _statusFiltroController.text = 'Todos os status';
+    }),
+    filtros: [
+      SizedBox(
+        width: 320,
+        child: DropdownMenu<String>(
+          controller: _statusFiltroController,
+          label: const Text('Status'),
+          initialSelection: _statusFiltro,
+          dropdownMenuEntries: const [
+            DropdownMenuEntry(value: 'TODOS', label: 'Todos'),
+            DropdownMenuEntry(value: 'ABERTO', label: 'Aberto'),
+            DropdownMenuEntry(value: 'DEVOLVIDO', label: 'Devolvido'),
+            DropdownMenuEntry(value: 'ATRASADO', label: 'Atrasado'),
+          ],
+          onSelected: (v) => setState(() => _statusFiltro = v ?? 'TODOS'),
+        ),
+      ),
+    ],
+    chipsAtivos: [
+      if (_textoPesquisa.isNotEmpty)
+        InputChip(
+          label: Text('Busca: $_textoPesquisa'),
+          onDeleted: () => setState(() => _textoPesquisa = ''),
+        ),
+      if (_statusFiltro != 'TODOS')
+        InputChip(
+          label: Text('Status: $_statusFiltro'),
+          onDeleted: () => setState(() => _statusFiltro = 'TODOS'),
+        ),
+    ],
+  );
+
+  Widget _buildEmprestimoCard(Emprestimo emp) => Card(
+    elevation: 0.8,
+    color: Colors.white,
+    margin: const EdgeInsets.only(bottom: 14),
+    shape: RoundedRectangleBorder(
+      borderRadius: BorderRadius.circular(22),
+      side: const BorderSide(color: Color(0xFFE3E5EF)),
+    ),
+    child: Padding(
+      padding: const EdgeInsets.all(18),
+      child: Row(
+        children: [
+          Container(
+            width: 54,
+            height: 54,
+            alignment: Alignment.center,
+            decoration: BoxDecoration(
+              color: const Color(0xFFE8EBFF),
+              borderRadius: BorderRadius.circular(18),
+            ),
+            child: const Icon(Icons.assignment, color: Color(0xFF37448F)),
+          ),
+          const SizedBox(width: 16),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Empréstimo #${emp.id?.substring(0, 6) ?? '...'}',
+                  style: const TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+                Text('Pessoa: ${emp.nomePessoa}'),
+                Text(
+                  'Livros: ${emp.itens.map((i) => "${i.livroNome} (${i.qtd})").join(', ')}',
+                ),
+                const SizedBox(height: 10),
+                Wrap(
+                  spacing: 8,
+                  children: [
+                    Chip(label: Text(_formatarData(emp.dataEmprestimo))),
+                    Chip(label: Text(_formatarData(emp.dataPrevistaDevolucao))),
+                  ],
+                ),
+              ],
+            ),
+          ),
+
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.end,
+            children: [
+              Container(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 12,
+                  vertical: 6,
+                ),
+                decoration: BoxDecoration(
+                  color: _corStatus(emp.status),
+                  borderRadius: BorderRadius.circular(999),
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(
+                      _iconeStatus(emp.status),
+                      size: 16,
+                      color: Colors.white,
+                    ),
+                    const SizedBox(width: 6),
+                    Text(
+                      _textoStatus(emp.status),
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              if (emp.status != 'DEVOLVIDO') ...[
+                const SizedBox(height: 8),
+                FilledButton(
+                  onPressed: () => _devolver(emp),
+                  child: const Text('Devolver'),
+                ),
+              ],
+            ],
+          ),
+        ],
+      ),
+    ),
+  );
+
+  Widget _buildEstadoVazio() => const Padding(
+    padding: EdgeInsets.only(top: 80),
+    child: Column(
+      children: [
+        Icon(Icons.assignment_return_outlined, size: 76, color: Colors.grey),
+        Text('Nenhum empréstimo encontrado.'),
+      ],
+    ),
+  );
+}

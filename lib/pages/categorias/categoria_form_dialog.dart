@@ -1,5 +1,5 @@
+import 'package:biblioteca_flutter/services/firebase_crud.dart';
 import 'package:flutter/material.dart';
-
 import '../../models/categoria.dart';
 
 class CategoriaFormDialog extends StatefulWidget {
@@ -16,14 +16,16 @@ class CategoriaFormDialog extends StatefulWidget {
 
 class _CategoriaFormDialogState extends State<CategoriaFormDialog> {
   final GlobalKey<FormState> _formKey = GlobalKey<FormState>();
+  final FirestoreService _service = FirestoreService();
 
   late final TextEditingController _nomeController;
   late final TextEditingController _descricaoController;
+  
+  bool _isLoading = false;
 
   @override
   void initState() {
     super.initState();
-
     _nomeController = TextEditingController(text: widget.categoria?.nome ?? '');
     _descricaoController = TextEditingController(
       text: widget.categoria?.descricao ?? '',
@@ -37,26 +39,40 @@ class _CategoriaFormDialogState extends State<CategoriaFormDialog> {
     super.dispose();
   }
 
-  void _salvar() {
-    if (!_formKey.currentState!.validate()) {
-      return;
-    }
+  Future<void> _salvar() async {
+    if (!_formKey.currentState!.validate()) return;
 
-    Navigator.pop(
-      context,
-      CategoriaPayload(
+    setState(() => _isLoading = true);
+
+    try {
+      final categoria = Categoria(
+        id: widget.categoria?.id,
         nome: _nomeController.text.trim(),
         descricao: _descricaoController.text.trim(),
-      ),
-    );
+      );
+
+      if (widget.categoria == null) {
+        await _service.add('categorias', categoria.toFirestore());
+      } else {
+        await _service.update('categorias', widget.categoria!.id!, categoria.toFirestore());
+      }
+
+      if (mounted) Navigator.pop(context);
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Erro ao salvar: $e')),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _isLoading = false);
+    }
   }
 
   @override
   Widget build(BuildContext context) {
     return AlertDialog(
-      title: Text(
-        widget.categoria == null ? 'Nova categoria' : 'Editar categoria',
-      ),
+      title: Text(widget.categoria == null ? 'Nova categoria' : 'Editar categoria'),
       content: SizedBox(
         width: 420,
         child: Form(
@@ -70,13 +86,8 @@ class _CategoriaFormDialogState extends State<CategoriaFormDialog> {
                   labelText: 'Nome',
                   border: OutlineInputBorder(),
                 ),
-                validator: (value) {
-                  if (value == null || value.trim().isEmpty) {
-                    return 'Informe o nome';
-                  }
-
-                  return null;
-                },
+                validator: (value) => (value == null || value.trim().isEmpty) 
+                    ? 'Informe o nome' : null,
               ),
               const SizedBox(height: 12),
               TextFormField(
@@ -92,12 +103,14 @@ class _CategoriaFormDialogState extends State<CategoriaFormDialog> {
       ),
       actions: [
         TextButton(
-          onPressed: () => Navigator.pop(context),
+          onPressed: _isLoading ? null : () => Navigator.pop(context),
           child: const Text('Cancelar'),
         ),
         FilledButton(
-          onPressed: _salvar,
-          child: const Text('Salvar'),
+          onPressed: _isLoading ? null : _salvar,
+          child: _isLoading
+              ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2))
+              : const Text('Salvar'),
         ),
       ],
     );

@@ -1,15 +1,12 @@
 import 'package:flutter/material.dart';
-
+import 'package:cloud_firestore/cloud_firestore.dart';
 import '../../models/emprestimo.dart';
 import '../../models/livro.dart';
 
 class EmprestimoFormDialog extends StatefulWidget {
   final List<Livro> livros;
 
-  const EmprestimoFormDialog({
-    super.key,
-    required this.livros,
-  });
+  const EmprestimoFormDialog({super.key, required this.livros});
 
   @override
   State<EmprestimoFormDialog> createState() => _EmprestimoFormDialogState();
@@ -17,123 +14,40 @@ class EmprestimoFormDialog extends StatefulWidget {
 
 class _EmprestimoFormDialogState extends State<EmprestimoFormDialog> {
   final GlobalKey<FormState> _formKey = GlobalKey<FormState>();
+  final FirebaseFirestore _db = FirebaseFirestore.instance;
 
   final TextEditingController _nomePessoaController = TextEditingController();
-  final TextEditingController _telefonePessoaController =
-      TextEditingController();
-  final TextEditingController _documentoPessoaController =
-      TextEditingController();
-
+  final TextEditingController _telefonePessoaController = TextEditingController();
+  final TextEditingController _documentoPessoaController = TextEditingController();
   final TextEditingController _livroController = TextEditingController();
-  final TextEditingController _quantidadeController = TextEditingController();
-  final TextEditingController _dataPrevistaController =
-      TextEditingController();
+  final TextEditingController _quantidadeController = TextEditingController(text: '1');
+  final TextEditingController _dataPrevistaController = TextEditingController();
 
-  int? _livroSelecionado;
+  String? _livroSelecionadoId;
   String? _erroLivro;
+  bool _isLoading = false;
 
   @override
   void initState() {
     super.initState();
-
-    if (widget.livros.isNotEmpty) {
-      final primeiroLivro = widget.livros.first;
-      _livroSelecionado = primeiroLivro.idlivro;
-      _livroController.text = _labelLivro(primeiroLivro);
-    }
-
-    _quantidadeController.text = '1';
-    _dataPrevistaController.text = _formatarDataParaApi(
-      DateTime.now().add(const Duration(days: 7)),
-    );
-
-    _livroController.addListener(_validarTextoLivroDigitado);
+    _dataPrevistaController.text = _formatarData(DateTime.now().add(const Duration(days: 7)));
   }
 
   @override
   void dispose() {
-    _livroController.removeListener(_validarTextoLivroDigitado);
-
     _nomePessoaController.dispose();
     _telefonePessoaController.dispose();
     _documentoPessoaController.dispose();
     _livroController.dispose();
     _quantidadeController.dispose();
     _dataPrevistaController.dispose();
-
     super.dispose();
   }
 
-  String _labelLivro(Livro livro) {
-    return '${livro.titulo} - disponível: ${livro.quantidadeDisponivel}';
-  }
-
-  Livro? _buscarLivroPorId(int? id) {
-    if (id == null) {
-      return null;
-    }
-
-    for (final livro in widget.livros) {
-      if (livro.idlivro == id) {
-        return livro;
-      }
-    }
-
-    return null;
-  }
-
-  Livro? _buscarLivroPorLabel(String label) {
-    final texto = label.trim();
-
-    if (texto.isEmpty) {
-      return null;
-    }
-
-    for (final livro in widget.livros) {
-      if (_labelLivro(livro) == texto) {
-        return livro;
-      }
-    }
-
-    return null;
-  }
-
-  Livro? get _livroAtual {
-    return _buscarLivroPorId(_livroSelecionado);
-  }
-
-  void _validarTextoLivroDigitado() {
-    final livroEncontrado = _buscarLivroPorLabel(_livroController.text);
-
-    if (livroEncontrado != null) {
-      if (_livroSelecionado != livroEncontrado.idlivro || _erroLivro != null) {
-        setState(() {
-          _livroSelecionado = livroEncontrado.idlivro;
-          _erroLivro = null;
-        });
-      }
-
-      return;
-    }
-
-    if (_livroSelecionado != null && _livroController.text.trim().isNotEmpty) {
-      setState(() {
-        _livroSelecionado = null;
-      });
-    }
-  }
-
-  String _formatarDataParaApi(DateTime data) {
-    final ano = data.year.toString().padLeft(4, '0');
-    final mes = data.month.toString().padLeft(2, '0');
-    final dia = data.day.toString().padLeft(2, '0');
-
-    return '$ano-$mes-$dia';
-  }
+  String _formatarData(DateTime data) => "${data.year}-${data.month.toString().padLeft(2,'0')}-${data.day.toString().padLeft(2,'0')}";
 
   Future<void> _selecionarData() async {
     final hoje = DateTime.now();
-
     final data = await showDatePicker(
       context: context,
       initialDate: hoje.add(const Duration(days: 7)),
@@ -141,45 +55,56 @@ class _EmprestimoFormDialogState extends State<EmprestimoFormDialog> {
       lastDate: DateTime(hoje.year + 5),
     );
 
-    if (data == null) {
-      return;
+    if (data != null) {
+      setState(() => _dataPrevistaController.text = _formatarData(data));
     }
-
-    setState(() {
-      _dataPrevistaController.text = _formatarDataParaApi(data);
-    });
   }
 
-  void _salvar() {
-    if (_livroSelecionado == null) {
-      setState(() {
-        _erroLivro = 'Selecione um livro da lista';
-      });
-
+  Future<void> _salvar() async {
+    if (_livroSelecionadoId == null) {
+      setState(() => _erroLivro = 'Selecione um livro');
       return;
     }
+    if (!_formKey.currentState!.validate()) return;
 
-    if (!_formKey.currentState!.validate()) {
-      return;
-    }
+    setState(() => _isLoading = true);
 
-    Navigator.pop(
-      context,
-      EmprestimoPayload(
-        livroId: _livroSelecionado!,
-        qtd: int.parse(_quantidadeController.text.trim()),
-        dataPrevistaDevolucao: _dataPrevistaController.text.trim(),
+    try {
+      final int qtd = int.parse(_quantidadeController.text.trim());
+      final livro = widget.livros.firstWhere((l) => l.id == _livroSelecionadoId);
+
+      final novoEmprestimo = Emprestimo(
         nomePessoa: _nomePessoaController.text.trim(),
         telefonePessoa: _telefonePessoaController.text.trim(),
         documentoPessoa: _documentoPessoaController.text.trim(),
-      ),
-    );
+        dataEmprestimo: _formatarData(DateTime.now()),
+        dataPrevistaDevolucao: _dataPrevistaController.text.trim(),
+        status: 'ABERTO',
+        itens: [EmprestimoItem(livroId: livro.id, livroNome: livro.titulo, qtd: qtd)],
+      );
+
+      final batch = _db.batch();
+      
+      final empRef = _db.collection('emprestimos').doc();
+      batch.set(empRef, novoEmprestimo.toFirestore());
+
+      final livroRef = _db.collection('livros').doc(livro.id);
+      batch.update(livroRef, {
+        'quantidade_disponivel': FieldValue.increment(-qtd) 
+      });
+
+      await batch.commit();
+
+      if (mounted) Navigator.pop(context);
+    } catch (e) {
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Erro: $e')));
+    } finally {
+      if (mounted) setState(() => _isLoading = false);
+    }
   }
 
   @override
   Widget build(BuildContext context) {
-    final livroAtual = _livroAtual;
-
     return AlertDialog(
       title: const Text('Novo empréstimo'),
       content: SizedBox(
@@ -191,128 +116,76 @@ class _EmprestimoFormDialogState extends State<EmprestimoFormDialog> {
               children: [
                 TextFormField(
                   controller: _nomePessoaController,
-                  decoration: const InputDecoration(
-                    labelText: 'Nome de quem alugou',
-                    prefixIcon: Icon(Icons.badge_outlined),
-                    border: OutlineInputBorder(),
-                  ),
-                  validator: (value) {
-                    final texto = value?.trim() ?? '';
-
-                    if (texto.isEmpty) {
-                      return 'Informe o nome da pessoa';
-                    }
-
-                    if (texto.length < 3) {
-                      return 'Informe um nome válido';
-                    }
-
-                    return null;
-                  },
+                  decoration: const InputDecoration(labelText: 'Nome', prefixIcon: Icon(Icons.badge_outlined), border: OutlineInputBorder()),
+                  validator: (v) => (v == null || v.trim().isEmpty) ? 'Informe o nome' : null,
                 ),
                 const SizedBox(height: 12),
-                TextFormField(
-                  controller: _telefonePessoaController,
-                  keyboardType: TextInputType.phone,
-                  decoration: const InputDecoration(
-                    labelText: 'Telefone',
-                    prefixIcon: Icon(Icons.phone_outlined),
-                    border: OutlineInputBorder(),
-                  ),
+                Row(
+                  children: [
+                    Expanded(
+                      child: TextFormField(
+                        controller: _telefonePessoaController,
+                        keyboardType: TextInputType.phone,
+                        decoration: const InputDecoration(labelText: 'Telefone', prefixIcon: Icon(Icons.phone_outlined), border: OutlineInputBorder()),
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: TextFormField(
+                        controller: _documentoPessoaController,
+                        decoration: const InputDecoration(labelText: 'Documento', prefixIcon: Icon(Icons.credit_card_outlined), border: OutlineInputBorder()),
+                      ),
+                    ),
+                  ],
                 ),
                 const SizedBox(height: 12),
-                TextFormField(
-                  controller: _documentoPessoaController,
-                  keyboardType: TextInputType.text,
-                  decoration: const InputDecoration(
-                    labelText: 'Documento',
-                    prefixIcon: Icon(Icons.credit_card_outlined),
-                    border: OutlineInputBorder(),
-                    helperText: 'Pode ser CPF, matrícula ou outro documento',
-                  ),
-                ),
-                const SizedBox(height: 12),
-
-                // Campo pesquisável de livro
-                DropdownMenu<int>(
+                DropdownMenu<String>(
                   controller: _livroController,
                   label: const Text('Livro'),
-                  hintText: 'Digite para procurar o livro',
                   expandedInsets: EdgeInsets.zero,
-                  menuHeight: 360,
-                  enableFilter: true,
-                  enableSearch: true,
-                  requestFocusOnTap: true,
-                  initialSelection: _livroSelecionado,
-                  leadingIcon: const Icon(Icons.menu_book_outlined),
                   errorText: _erroLivro,
-                  dropdownMenuEntries: widget.livros.map((livro) {
-                    return DropdownMenuEntry<int>(
-                      value: livro.idlivro,
-                      label: _labelLivro(livro),
-                    );
-                  }).toList(),
-                  onSelected: (value) {
-                    final livro = _buscarLivroPorId(value);
-
-                    setState(() {
-                      _livroSelecionado = value;
-                      _erroLivro = null;
-
-                      if (livro != null) {
-                        _livroController.text = _labelLivro(livro);
-                      }
-                    });
-                  },
-                ),
-
-                const SizedBox(height: 12),
-                TextFormField(
-                  controller: _quantidadeController,
-                  keyboardType: TextInputType.number,
-                  decoration: InputDecoration(
-                    labelText: 'Quantidade',
-                    border: const OutlineInputBorder(),
-                    helperText: livroAtual == null
-                        ? 'Selecione um livro para validar a quantidade'
-                        : 'Disponível: ${livroAtual.quantidadeDisponivel}',
-                  ),
-                  validator: (value) {
-                    final qtd = int.tryParse(value ?? '');
-
-                    if (qtd == null || qtd <= 0) {
-                      return 'Informe uma quantidade válida';
-                    }
-
-                    final livro = _livroAtual;
-
-                    if (livro != null && qtd > livro.quantidadeDisponivel) {
-                      return 'Quantidade maior que o estoque disponível';
-                    }
-
-                    return null;
-                  },
+                  dropdownMenuEntries: widget.livros.map((livro) => DropdownMenuEntry<String>(
+                    value: livro.id,
+                    label: '${livro.titulo} (Disp: ${livro.quantidadeDisponivel})',
+                  )).toList(),
+                  onSelected: (value) => setState(() {
+                    _livroSelecionadoId = value;
+                    _erroLivro = null;
+                  }),
                 ),
                 const SizedBox(height: 12),
-                TextFormField(
-                  controller: _dataPrevistaController,
-                  readOnly: true,
-                  decoration: InputDecoration(
-                    labelText: 'Data prevista de devolução',
-                    border: const OutlineInputBorder(),
-                    suffixIcon: IconButton(
-                      onPressed: _selecionarData,
-                      icon: const Icon(Icons.calendar_month_outlined),
+                Row(
+                  children: [
+                    Expanded(
+                      child: TextFormField(
+                        controller: _quantidadeController,
+                        keyboardType: TextInputType.number,
+                        decoration: const InputDecoration(labelText: 'Quantidade', border: OutlineInputBorder()),
+                        validator: (value) {
+                          final qtd = int.tryParse(value ?? '');
+                          final livro = _livroSelecionadoId != null 
+                              ? widget.livros.firstWhere((l) => l.id == _livroSelecionadoId) 
+                              : null;
+                          if (qtd == null || qtd <= 0) return 'Inválido';
+                          if (livro != null && qtd > livro.quantidadeDisponivel) return 'Estoque insuficiente';
+                          return null;
+                        },
+                      ),
                     ),
-                  ),
-                  validator: (value) {
-                    if (value == null || value.trim().isEmpty) {
-                      return 'Informe a data prevista';
-                    }
-
-                    return null;
-                  },
-                  onTap: _selecionarData,
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: TextFormField(
+                        controller: _dataPrevistaController,
+                        readOnly: true,
+                        decoration: InputDecoration(
+                          labelText: 'Data devolução',
+                          border: const OutlineInputBorder(),
+                          suffixIcon: IconButton(icon: const Icon(Icons.calendar_month), onPressed: _selecionarData),
+                        ),
+                        onTap: _selecionarData,
+                      ),
+                    ),
+                  ],
                 ),
               ],
             ),
@@ -320,14 +193,11 @@ class _EmprestimoFormDialogState extends State<EmprestimoFormDialog> {
         ),
       ),
       actions: [
-        TextButton(
-          onPressed: () => Navigator.pop(context),
-          child: const Text('Cancelar'),
-        ),
+        TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancelar')),
         FilledButton.icon(
-          onPressed: _salvar,
+          onPressed: _isLoading ? null : _salvar,
           icon: const Icon(Icons.save_outlined),
-          label: const Text('Salvar'),
+          label: _isLoading ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2)) : const Text('Salvar'),
         ),
       ],
     );

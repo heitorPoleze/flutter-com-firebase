@@ -38,18 +38,18 @@ class _HomePageState extends State<HomePage> {
     }
   }
 
-  // Widget get _conteudo {
-  //   switch (_menuSelecionado) {
-  //     case MenuApp.livros:
-  //       return const LivrosPage();
-  //     case MenuApp.categorias:
-  //       return const CategoriasPage();
-  //     case MenuApp.autores:
-  //       return const AutoresPage();
-  //     case MenuApp.emprestimos:
-  //       return const EmprestimosPage();
-  //   }
-  // }
+  Widget get _conteudo {
+   switch (_menuSelecionado) {
+     case MenuApp.livros:
+       return const LivrosPage();
+     case MenuApp.categorias:
+       return const CategoriasPage();
+     case MenuApp.autores:
+       return const AutoresPage();
+     case MenuApp.emprestimos:
+       return const EmprestimosPage();
+   }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -66,7 +66,7 @@ class _HomePageState extends State<HomePage> {
           )
         ],
       ),
-      //body: _conteudo,
+      body: _conteudo,
       bottomNavigationBar: NavigationBar(
         selectedIndex: _menuSelecionado.index,
         onDestinationSelected: (index) {

@@ -1,33 +1,23 @@
 class Autor {
-  final int idautor;
+  final String? id; 
   final String nome;
   final String? nacionalidade;
 
   Autor({
-    required this.idautor,
+    required this.id,
     required this.nome,
     this.nacionalidade,
   });
 
-  factory Autor.fromJson(Map<String, dynamic> json) {
+  factory Autor.fromFirestore(Map<String, dynamic> data, String id) {
     return Autor(
-      idautor: json['idautor'],
-      nome: json['nome'] ?? '',
-      nacionalidade: json['nacionalidade'],
+      id: id,
+      nome: data['nome'] ?? '',
+      nacionalidade: data['nacionalidade'],
     );
   }
-}
 
-class AutorPayload {
-  final String nome;
-  final String nacionalidade;
-
-  AutorPayload({
-    required this.nome,
-    required this.nacionalidade,
-  });
-
-  Map<String, dynamic> toJson() {
+  Map<String, dynamic> toFirestore() {
     return {
       'nome': nome,
       'nacionalidade': nacionalidade,

@@ -1,33 +1,19 @@
 class Categoria {
-  final int idcategoria;
+  final String? id;
   final String nome;
   final String? descricao;
 
-  Categoria({
-    required this.idcategoria,
-    required this.nome,
-    this.descricao,
-  });
+  Categoria({this.id, required this.nome, this.descricao});
 
-  factory Categoria.fromJson(Map<String, dynamic> json) {
+  factory Categoria.fromFirestore(Map<String, dynamic> data, String id) {
     return Categoria(
-      idcategoria: json['idcategoria'],
-      nome: json['nome'] ?? '',
-      descricao: json['descricao'],
+      id: id,
+      nome: data['nome'] ?? '',
+      descricao: data['descricao'],
     );
   }
-}
 
-class CategoriaPayload {
-  final String nome;
-  final String descricao;
-
-  CategoriaPayload({
-    required this.nome,
-    required this.descricao,
-  });
-
-  Map<String, dynamic> toJson() {
+  Map<String, dynamic> toFirestore() {
     return {
       'nome': nome,
       'descricao': descricao,

@@ -1,33 +1,28 @@
 class EmprestimoItem {
-  final int idemprestimolivro;
-  final int livroId;
+  final String livroId;
   final String livroNome;
   final int qtd;
 
-  EmprestimoItem({
-    required this.idemprestimolivro,
-    required this.livroId,
-    required this.livroNome,
-    required this.qtd,
-  });
+  EmprestimoItem({required this.livroId, required this.livroNome, required this.qtd});
 
-  factory EmprestimoItem.fromJson(Map<String, dynamic> json) {
+  factory EmprestimoItem.fromMap(Map<String, dynamic> map) {
     return EmprestimoItem(
-      idemprestimolivro: json['idemprestimolivro'] ?? 0,
-      livroId: json['livro_idlivro'] ?? 0,
-      livroNome: json['livro_nome'] ?? '',
-      qtd: json['qtd'] ?? 0,
+      livroId: map['livroId'] ?? '',
+      livroNome: map['livroNome'] ?? '',
+      qtd: map['qtd'] ?? 0,
     );
+  }
+
+  Map<String, dynamic> toMap() {
+    return {'livroId': livroId, 'livroNome': livroNome, 'qtd': qtd};
   }
 }
 
 class Emprestimo {
-  final int idemprestimo;
-
+  final String? id;
   final String nomePessoa;
   final String? telefonePessoa;
   final String? documentoPessoa;
-
   final String dataEmprestimo;
   final String dataPrevistaDevolucao;
   final String? dataDevolucao;
@@ -35,7 +30,7 @@ class Emprestimo {
   final List<EmprestimoItem> itens;
 
   Emprestimo({
-    required this.idemprestimo,
+    this.id,
     required this.nomePessoa,
     this.telefonePessoa,
     this.documentoPessoa,
@@ -46,58 +41,31 @@ class Emprestimo {
     required this.itens,
   });
 
-  bool get devolvido => status == 'DEVOLVIDO';
-
-  factory Emprestimo.fromJson(Map<String, dynamic> json) {
-    final itensJson = json['itens'] as List<dynamic>? ?? [];
-
+  factory Emprestimo.fromFirestore(Map<String, dynamic> data, String id) {
+    var listaItens = (data['itens'] as List<dynamic>?) ?? [];
     return Emprestimo(
-      idemprestimo: json['idemprestimo'] ?? 0,
-      nomePessoa: json['nomePessoa'] ?? '',
-      telefonePessoa: json['telefonePessoa'],
-      documentoPessoa: json['documentoPessoa'],
-      dataEmprestimo: json['dataEmprestimo'] ?? '',
-      dataPrevistaDevolucao: json['dataPrevistaDevolucao'] ?? '',
-      dataDevolucao: json['dataDevolucao'],
-      status: json['status'] ?? '',
-      itens: itensJson
-          .map((item) => EmprestimoItem.fromJson(item))
-          .toList(),
+      id: id,
+      nomePessoa: data['nomePessoa'] ?? '',
+      telefonePessoa: data['telefonePessoa'],
+      documentoPessoa: data['documentoPessoa'],
+      dataEmprestimo: data['dataEmprestimo'] ?? '',
+      dataPrevistaDevolucao: data['dataPrevistaDevolucao'] ?? '',
+      dataDevolucao: data['dataDevolucao'],
+      status: data['status'] ?? 'ABERTO',
+      itens: listaItens.map((i) => EmprestimoItem.fromMap(i)).toList(),
     );
   }
-}
 
-class EmprestimoPayload {
-  final int livroId;
-  final int qtd;
-  final String dataPrevistaDevolucao;
-
-  final String nomePessoa;
-  final String telefonePessoa;
-  final String documentoPessoa;
-
-  EmprestimoPayload({
-    required this.livroId,
-    required this.qtd,
-    required this.dataPrevistaDevolucao,
-    required this.nomePessoa,
-    required this.telefonePessoa,
-    required this.documentoPessoa,
-  });
-
-  Map<String, dynamic> toJson() {
+  Map<String, dynamic> toFirestore() {
     return {
       'nomePessoa': nomePessoa,
       'telefonePessoa': telefonePessoa,
       'documentoPessoa': documentoPessoa,
+      'dataEmprestimo': dataEmprestimo,
       'dataPrevistaDevolucao': dataPrevistaDevolucao,
-      'status': 'ABERTO',
-      'itens_payload': [
-        {
-          'livro_idlivro': livroId,
-          'qtd': qtd,
-        }
-      ],
+      'dataDevolucao': dataDevolucao,
+      'status': status,
+      'itens': itens.map((item) => item.toMap()).toList(),
     };
   }
 }

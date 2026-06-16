@@ -1,6 +1,6 @@
+import 'package:biblioteca_flutter/models/autor.dart';
+import 'package:biblioteca_flutter/services/firebase_crud.dart';
 import 'package:flutter/material.dart';
-
-import '../../models/autor.dart';
 
 class AutorFormDialog extends StatefulWidget {
   final Autor? autor;
@@ -16,14 +16,15 @@ class AutorFormDialog extends StatefulWidget {
 
 class _AutorFormDialogState extends State<AutorFormDialog> {
   final GlobalKey<FormState> _formKey = GlobalKey<FormState>();
+  final FirestoreService _service = FirestoreService(); 
 
   late final TextEditingController _nomeController;
   late final TextEditingController _nacionalidadeController;
+  bool _isLoading = false; 
 
   @override
   void initState() {
     super.initState();
-
     _nomeController = TextEditingController(text: widget.autor?.nome ?? '');
     _nacionalidadeController = TextEditingController(
       text: widget.autor?.nacionalidade ?? '',
@@ -37,18 +38,34 @@ class _AutorFormDialogState extends State<AutorFormDialog> {
     super.dispose();
   }
 
-  void _salvar() {
-    if (!_formKey.currentState!.validate()) {
-      return;
-    }
+  Future<void> _salvar() async {
+    if (!_formKey.currentState!.validate()) return;
 
-    Navigator.pop(
-      context,
-      AutorPayload(
+    setState(() => _isLoading = true);
+
+    try {
+      final autor = Autor(
+        id: widget.autor?.id,
         nome: _nomeController.text.trim(),
         nacionalidade: _nacionalidadeController.text.trim(),
-      ),
-    );
+      );
+
+      if (widget.autor == null) {
+        await _service.add('autores', autor.toFirestore());
+      } else {
+        await _service.update('autores', widget.autor!.id!, autor.toFirestore());
+      }
+
+      if (mounted) Navigator.pop(context);
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Erro ao salvar: $e')),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _isLoading = false);
+    }
   }
 
   @override
@@ -64,25 +81,13 @@ class _AutorFormDialogState extends State<AutorFormDialog> {
             children: [
               TextFormField(
                 controller: _nomeController,
-                decoration: const InputDecoration(
-                  labelText: 'Nome',
-                  border: OutlineInputBorder(),
-                ),
-                validator: (value) {
-                  if (value == null || value.trim().isEmpty) {
-                    return 'Informe o nome';
-                  }
-
-                  return null;
-                },
+                decoration: const InputDecoration(labelText: 'Nome', border: OutlineInputBorder()),
+                validator: (value) => (value == null || value.trim().isEmpty) ? 'Informe o nome' : null,
               ),
               const SizedBox(height: 12),
               TextFormField(
                 controller: _nacionalidadeController,
-                decoration: const InputDecoration(
-                  labelText: 'Nacionalidade',
-                  border: OutlineInputBorder(),
-                ),
+                decoration: const InputDecoration(labelText: 'Nacionalidade', border: OutlineInputBorder()),
               ),
             ],
           ),
@@ -90,12 +95,14 @@ class _AutorFormDialogState extends State<AutorFormDialog> {
       ),
       actions: [
         TextButton(
-          onPressed: () => Navigator.pop(context),
+          onPressed: _isLoading ? null : () => Navigator.pop(context),
           child: const Text('Cancelar'),
         ),
         FilledButton(
-          onPressed: _salvar,
-          child: const Text('Salvar'),
+          onPressed: _isLoading ? null : _salvar,
+          child: _isLoading 
+              ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2))
+              : const Text('Salvar'),
         ),
       ],
     );

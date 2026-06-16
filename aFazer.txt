@@ -1,0 +1,1 @@
+Ao excluir autor ou categoria -> Mudar para "Sem Autor"/"Sem categoria"
