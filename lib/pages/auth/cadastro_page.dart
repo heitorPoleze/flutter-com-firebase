@@ -38,7 +38,7 @@ class _CadastroPageState extends State<CadastroPage> {
             backgroundColor: Colors.indigo,
           ),
         );
-
+        Navigator.pop(context);
       }
     } on FirebaseAuthException catch (e) {
         if (!mounted) return;

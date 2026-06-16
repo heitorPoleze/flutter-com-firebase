@@ -15,7 +15,7 @@ class _LoginPageState extends State<LoginPage> {
   final _formKey = GlobalKey<FormState>();
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
-
+  final _emailFieldKey = GlobalKey<FormFieldState>();
   @override
   void dispose() {
     _emailController.dispose();
@@ -29,22 +29,21 @@ class _LoginPageState extends State<LoginPage> {
       final senha = _passwordController.text;
       final authService = AuthService();
 
-      try{
+      try {
         final auth = await authService.fazerLogin(email: email, senha: senha);
-
-        if(auth && mounted){
+        if (auth && mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
               content: Text('$email logado com sucesso!'),
               backgroundColor: Colors.indigo,
             ),
-          ); 
-        } 
+          );
+        }
       } on FirebaseAuthException catch (e) {
         if (!mounted) return;
 
         String mensagemErro = 'Ocorreu um erro ao realizar o cadastro.';
-        
+
         if (e.code == 'email-already-in-use') {
           mensagemErro = 'Este e-mail já está cadastrado em outra conta.';
         } else if (e.code == 'weak-password') {
@@ -54,10 +53,7 @@ class _LoginPageState extends State<LoginPage> {
         }
 
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(mensagemErro),
-            backgroundColor: Colors.red,
-          ),
+          SnackBar(content: Text(mensagemErro), backgroundColor: Colors.red),
         );
       } catch (e) {
         if (!mounted) return;
@@ -67,6 +63,29 @@ class _LoginPageState extends State<LoginPage> {
             backgroundColor: Colors.red,
           ),
         );
+      }
+    }
+  }
+
+  _recuperarSenha() async {
+    if (_emailFieldKey.currentState!.validate()) {
+      final email = _emailController.text.trim();
+      final authService = AuthService();
+      try {
+        await authService.recuperarSenhaViaEmail(email);
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Verifique sua caixa de entrada!')),
+        );
+      } on FirebaseAuthException catch (e) {
+        String mensagem = 'Ocorreu um erro.';
+        if (e.code == 'user-not-found') {
+          mensagem = 'Email não cadastrado.';
+        } else if (e.code == 'invalid-email') {
+          mensagem = 'Formato de email inválido.';
+        }
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text(mensagem)));
       }
     }
   }
@@ -90,7 +109,7 @@ class _LoginPageState extends State<LoginPage> {
                   color: Colors.indigo,
                 ),
                 const SizedBox(height: 48),
-                
+
                 const Text(
                   'Bem-vindo(a)',
                   style: TextStyle(
@@ -101,9 +120,10 @@ class _LoginPageState extends State<LoginPage> {
                   textAlign: TextAlign.center,
                 ),
                 const SizedBox(height: 32),
-                
+
                 // Campo de E-mail
                 TextFormField(
+                  key: _emailFieldKey,
                   controller: _emailController,
                   keyboardType: TextInputType.emailAddress,
                   decoration: const InputDecoration(
@@ -113,7 +133,7 @@ class _LoginPageState extends State<LoginPage> {
                   validator: Validador.email,
                 ),
                 const SizedBox(height: 16),
-                
+
                 // Campo de Senha
                 TextFormField(
                   controller: _passwordController,
@@ -130,7 +150,7 @@ class _LoginPageState extends State<LoginPage> {
                   },
                 ),
                 const SizedBox(height: 24),
-                
+
                 // Botão de Login
                 FilledButton(
                   style: FilledButton.styleFrom(
@@ -145,22 +165,15 @@ class _LoginPageState extends State<LoginPage> {
                     style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
                   ),
                 ),
-                
+
                 const SizedBox(height: 16),
-                  TextButton(
-                  onPressed: () {
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (context) => const CadastroPage(),
-                      ),
-                    );
-                  },
+                TextButton(
+                  onPressed: _recuperarSenha,
                   child: const Text('Esqueci minha senha'),
                 ),
-                
+
                 const SizedBox(height: 16),
-                
+
                 // Botão para ir para a tela de Cadastro
                 TextButton(
                   onPressed: () {

@@ -23,4 +23,14 @@ class AuthService {
       rethrow;
     }
   }
+
+  Future<bool> recuperarSenhaViaEmail(String email) async {
+    try{
+      await _firebaseAuth.sendPasswordResetEmail(email: email);
+      return true;
+    } on FirebaseAuthException catch (e) {
+      debugPrint('Erro ao recuperar senha: $e');
+      rethrow;
+    }
+  }
 }
